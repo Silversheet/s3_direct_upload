@@ -13,13 +13,13 @@ module S3DirectUpload
       def initialize(options)
         @key_starts_with = options[:key_starts_with] || "uploads/"
         @options = options.reverse_merge(
-          aws_access_key_id: S3DirectUpload.config.access_key_id,
-          aws_secret_access_key: S3DirectUpload.config.secret_access_key,
+          aws_access_key_id: options[:aws_access_key_id] || S3DirectUpload.config.access_key_id,
+          aws_secret_access_key: options[:aws_secret_access_key] || S3DirectUpload.config.secret_access_key,
           bucket: options[:bucket] || S3DirectUpload.config.bucket,
-          region: S3DirectUpload.config.region || "us-east-1",
-          url: S3DirectUpload.config.url,
+          region: options[:region] || S3DirectUpload.config.region || "us-east-1",
+          url: options[:url] || S3DirectUpload.config.url,
           ssl: true,
-          acl: "public-read",
+          acl: options[:acl] || "public-read",
           expiration: 10.hours.from_now.utc.iso8601,
           max_file_size: 500.megabytes,
           callback_method: "POST",
@@ -27,6 +27,7 @@ module S3DirectUpload
           key_starts_with: @key_starts_with,
           key: key,
           date: Time.now.utc.strftime("%Y%m%d"),
+          session_token: options[:session_token] || "",
           timestamp: Time.now.utc.strftime("%Y%m%dT%H%M%SZ")
         )
       end
@@ -63,6 +64,7 @@ module S3DirectUpload
           'X-Amz-Algorithm' => 'AWS4-HMAC-SHA256',
           'X-Amz-Credential' => "#{@options[:aws_access_key_id]}/#{@options[:date]}/#{@options[:region]}/s3/aws4_request",
           'X-Amz-Date' => @options[:timestamp],
+          'X-Amz-Security-Token' => @options[:session_token],
           'X-Amz-Signature' => signature,
           'X-Requested-With' => 'xhr'
         }
@@ -94,7 +96,8 @@ module S3DirectUpload
             {success_action_status: "201"},
             {'X-Amz-Algorithm' => 'AWS4-HMAC-SHA256'},
             {'X-Amz-Credential' => "#{@options[:aws_access_key_id]}/#{@options[:date]}/#{@options[:region]}/s3/aws4_request"},
-            {'X-Amz-Date' => @options[:timestamp]}
+            {'X-Amz-Date' => @options[:timestamp]},
+            {'X-Amz-Security-Token' => @options[:session_token]}
           ] + (@options[:conditions] || [])
         }
       end
